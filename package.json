@@ -8,5 +8,8 @@
   "dependencies": {
     "jest": "^27.4.3",
     "selenium-webdriver": "^4.1.0"
+  },
+  "scripts": {
+    "test": "jest --no-cache --coverage"
   }
 }
