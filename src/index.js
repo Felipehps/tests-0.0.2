@@ -3,19 +3,20 @@ const { Builder, By, Key } = require('selenium-webdriver');
 const BASE_URL = 'https://opentdb.com/browse.php';
 
 // ENV FLAG
-const env = process.argv[2];
+const env = process.argv[4];
 
-let driver;
+let driver = {};
+let elements = {};
 
 // Sets the enviroment
 switch (env) {
-  case '--docker':
+  case '-docker':
     driver = new Builder()
       .forBrowser('chrome')
       .usingServer('http://selenium:4444')
       .build();
     break;
-  case '--local':
+  case '-local':
     driver = new Builder().forBrowser('chrome').build();
     break;
   default:
@@ -23,12 +24,17 @@ switch (env) {
     process.exit();
 }
 
-// Selecting elements
-const searchBar = driver.findElement(By.id('query'));
-const searchBtn = driver.findElement(By.className('btn-default'));
-const typeSelect = driver.findElement(By.name('type'));
-
 // Functions
+async function open() {
+  await driver.get(BASE_URL);
+  await getElements();
+}
+
+async function close() {
+  await driver.quit();
+  elements = {};
+}
+
 async function countListElements() {
   return await (
     await driver.findElements(By.xpath('//table/tbody/tr'))
@@ -39,24 +45,28 @@ async function isPaginationElPresent() {
   return await driver.findElement(By.className('pagination')).isDisplayed();
 }
 
+async function getElements() {
+  elements.searchBar = driver.findElement(By.id('query'));
+  elements.searchBtn = driver.findElement(By.className('btn-default'));
+  elements.typeSelect = driver.findElement(By.name('type'));
+}
+
 /**
  * Test Cases
  */
 
-/* banco-de-questoes.feature */
+/* search-questions.feature */
 const firstCase = async () => {
-  await driver.get(BASE_URL);
-  await searchBar.sendKeys('Science: Computers');
-  await searchBtn.click();
+  await elements.searchBar.sendKeys('Science: Computers');
+  await elements.searchBtn.click();
   return await driver.findElement(By.className('alert')).getText();
 };
 
-/* busca-categoria.feature */
+/* search-category.feature */
 const secondCase = async () => {
-  await driver.get(BASE_URL);
-  await typeSelect.sendKeys(Key.ARROW_DOWN, Key.ARROW_DOWN, Key.ENTER);
-  await searchBar.sendKeys('Science: Computers');
-  await searchBtn.click();
+  await elements.typeSelect.sendKeys(Key.ARROW_DOWN, Key.ARROW_DOWN, Key.ENTER);
+  await elements.searchBar.sendKeys('Science: Computers');
+  await elements.searchBtn.click();
   const res = {
     listItemsCount: await countListElements(),
     isPaginationEl: await isPaginationElPresent(),
@@ -64,12 +74,10 @@ const secondCase = async () => {
   return res;
 };
 
-/* valida-dificuldaddes.feature */
+/* custom-case.feature */
 const customCase = async () => {
   const difficulties = ['Hard', 'Medium', 'Easy'];
-  await driver.get(BASE_URL);
-  await searchBar.sendKeys('Video Game', Key.ENTER);
-  await searchBtn.click();
+  await elements.searchBar.sendKeys('Video Game', Key.ENTER);
 
   // Getting length
   const times = await (
@@ -82,12 +90,14 @@ const customCase = async () => {
       .findElement(By.xpath(`//table/tbody/tr[${i + 1}]/td[4]`))
       .getText();
     if (!difficulties.includes(result)) {
-      throw 'A divergent difficulty was found.';
+      return { error: true };
     }
   }
 };
 
 module.exports = {
+  open,
+  close,
   firstCase,
   secondCase,
   customCase,
